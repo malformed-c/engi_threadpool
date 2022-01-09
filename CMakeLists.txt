@@ -4,6 +4,9 @@ project(engi_threadpool LANGUAGES C)
 
 include_directories(engi_common/)
 
+add_subdirectory(engi_thread)
+add_subdirectory(engi_queue)
+
 set(CMAKE_C_FLAGS_DEBUG "-std=gnu2x -Og -Wall -Wextra -g3 -gdwarf-3 -fanalyzer -flto")
 set(CMAKE_C_FLAGS_RELEASE "-std=gnu2x -Ofast -flto")
 

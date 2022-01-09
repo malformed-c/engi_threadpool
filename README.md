@@ -1,6 +1,6 @@
-# **Pure C** queue library
+# **Pure C** threadpool library
 
-Clone: `git clone --recurse-submodules --remote-submodules https://gitlab.com/malformed-c/engi_queue.git`
+Clone: `git clone --recurse-submodules --remote-submodules https://gitlab.com/malformed-c/engi_threadpool.git`
 
 > Release build: `cmake -DCMAKE_BUILD_TYPE=Release ..`
 
@@ -13,11 +13,6 @@ Both `static` and `shared`
 Sample usage is in `main.c`
 
 License `LGPLv3` or later
-
-Checked with `valgrind --leak-check=full`
-
-### TODO
-Rewrite with linked list
 
 *Malformed C*
 
