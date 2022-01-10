@@ -1,24 +1,26 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
+#include <signal.h>
 
-#include "main.h"
 #include "engi_thread.h"
 #include "engi_queue.h"
-#include "engi_pool.h"
+#include "engi_threadpool.h"
 
-#define T_NUM 16
+volatile sig_atomic_t engi_shutdown = 0;
 
 void * simple_task(void *args)
 {
-	char *str = args;
+	puts("simple_task");
 
-	printf("%s\n", str);
+	return;
+}
 
-	return("simple task done");
+void * work_test()
+{
+	static int c = 0;
+	printf("test %d\n", c++);
+	return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -27,38 +29,25 @@ int main(int argc, char *argv[])
 
 	engi_pool_init(&pool);
 
-	for(unsigned i = 0; i < 16; i++)
+	for(unsigned i = 0; i < 2; i++)
 	{
 		engi_pool_worker_add(&pool);
 	}
 
-	engi_task_t work = {simple_task, "main"};
 
-	for(unsigned i = 0; i < 1024; i++)
+
+	for(unsigned i = 0; i < 1000; i++)
 	{
-		engi_pool_work_add(&pool, &work);
-
+		engi_task_t *work = calloc(1, sizeof(work));
+		work->func = work_test;
+		engi_pool_work_add(&pool, work);
 	}
 
-	sleep(10);
-
-	void *work_res = NULL;
-
-	unsigned int count = 0;
-
-	for(unsigned i = 0; i < *pool.comp_q.num; i++)
-	{
-		work_res = engi_pool_grabber_grab(&pool);
-		if(work_res != NULL)
-		{
-			printf("%s\n", (char *)work_res);
-		}
-		count = i;
-	}
-
-	printf("%d\n", count);
+	sleep(3);
 
 	engi_pool_destroy(&pool);
+
+	sleep(1);
 
 	exit(0);
 }

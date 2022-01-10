@@ -5,26 +5,46 @@
 #include <time.h>
 #include <errno.h>
 
-#include "engi_pool.h"
-
-//const int TTW = 250000000;
-//250000000 + (rand() % (250000000 / 2) - (250000000 ))
+#include "engi_threadpool.h"
 
 volatile engi_pool_t *pool_p;
 
 extern int engi_shutdown;
 
+void * wake_main(void *args)
+{
+	engi_pool_t *pool = (engi_pool_t *)args;
+	engi_pool_queue_t *tq = &pool->task_q;
+
+	pthread_cond_t *cv = &tq->cond;
+	pthread_mutex_t *cvm = &tq->cond_mutex;
+
+	while(unlikely(engi_shutdown == 0))
+	{
+		unsigned int t = tq->num;
+		while(t-- >= 0)
+		{
+			pthread_mutex_lock(&tq->cond_mutex);
+			pthread_cond_signal(&tq->cond);
+			pthread_mutex_unlock(&tq->cond_mutex);
+		}
+
+		sleep(1);
+	}
+
+
+}
+
 void * worker_main(void *args)
 {
-	unsigned int TTW = 250000000 + (rand() % (250000000 / 2) - (250000000 / 4));
-
 	engi_task_t *ret = NULL;
 
-	struct timespec wait = {.tv_sec = 0, .tv_nsec = TTW};
-
 	engi_pool_t *pool = (engi_pool_t *)args;
-
 	engi_pool_queue_t *tq = &pool->task_q;
+
+	pthread_cond_t *cv = &tq->cond;
+	pthread_mutex_t *cvm = &tq->cond_mutex;
+
 	pthread_mutex_t *tqm = &tq->mutex;
 	engi_queue_t *tqq = &tq->queue;
 
@@ -32,12 +52,22 @@ void * worker_main(void *args)
 	{
 		engi_task_t *work = {0};
 
+		if(*tq->num == 0) //block if there is no task avaible
+		{
+			pthread_mutex_lock(cvm);
+			pthread_cond_wait(cv, cvm);
+		}
+
 		pthread_mutex_lock(tqm);
 		if(likely(*tq->num > 0))
 		{
 			work = (engi_task_t *)tqq->dequeue(tqq, NULL);
 		}
 		pthread_mutex_unlock(tqm);
+
+		pthread_mutex_unlock(cvm);
+		pthread_cond_signal(cv); //signal other thread that mutex is unlocked
+
 
 		if(likely(work != NULL))
 		{
@@ -49,10 +79,6 @@ void * worker_main(void *args)
 
 			free(work);
 		}
-
-		nanosleep(&wait, NULL); //TODO replace with mutex cond
-
-		TTW = 250000000 + (rand() % (250000000 / 2) - (250000000 / 4));
 	}
 
 	return ret;
@@ -76,9 +102,16 @@ int engi_pool_queue_init(engi_pool_queue_t *self)
 void engi_pool_queue_destroy(engi_pool_queue_t *self)
 {
 	engi_queue_destroy(&self->queue);
+
+	pthread_mutex_lock(&self->cond_mutex);
+	pthread_cond_broadcast(&self->cond);
+	pthread_mutex_unlock(&self->cond_mutex);
+
+	pthread_mutex_lock(&self->cond_mutex);
+
 	pthread_mutex_destroy(&self->mutex);
-	pthread_cond_destroy(&self->cond);
 	pthread_mutex_destroy(&self->cond_mutex);
+	pthread_cond_destroy(&self->cond);
 	pthread_barrier_destroy(&self->barrier);
 
 }
@@ -92,6 +125,13 @@ int engi_pool_init(engi_pool_t *self)
 	pool_p = self;
 
 	self->shutdown = 0;
+
+// 	engi_thread_t wake;
+// 	engi_task_t work = {.func = wake_main, .args = self};
+//
+// 	engi_thread_init(&wake);
+// 	engi_thread_create(&wake, &work);
+// 	pthread_detach(wake.thread);
 
 	return res;
 }
@@ -125,6 +165,10 @@ int engi_pool_work_add(engi_pool_t *self, engi_task_t *work)
 	pthread_mutex_lock(tqm);
 	tqq->enqueue(tqq, work);
 	pthread_mutex_unlock(tqm);
+
+	pthread_mutex_lock(&tq->cond_mutex);
+	pthread_cond_signal(&tq->cond);
+	pthread_mutex_unlock(&tq->cond_mutex);
 
 	return 0;
 }
