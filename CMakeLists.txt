@@ -3,7 +3,7 @@ include_guard(GLOBAL)
 
 project(engi_threadpool LANGUAGES C)
 
-include_directories(engi_common/ engi_thread/ engi_queue/)
+include_directories(${CMAKE_SOURCE_DIR}/../engi_common/ engi_thread/ engi_queue/)
 
 add_subdirectory(engi_thread/)
 add_subdirectory(engi_queue/)

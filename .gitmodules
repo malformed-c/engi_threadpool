@@ -1,6 +1,3 @@
-[submodule "engi_common"]
-	path = engi_common
-	url = https://gitlab.com/malformed-c/engi_common
 [submodule "engi_thread"]
 	path = engi_thread
 	url = https://gitlab.com/malformed-c/engi_thread
